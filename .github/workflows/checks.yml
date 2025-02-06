@@ -1,0 +1,46 @@
+name: checks
+
+on: push
+
+jobs:
+  build:
+    runs-on: ubuntu-20.04
+    permissions:
+      contents: read
+      checks: write
+
+    steps:
+    - uses: actions/checkout@v4.1.1
+        
+    - uses: actions/setup-node@v4.0.1
+      with:
+        node-version-file: '.node-version'
+        cache: 'npm'
+
+    - name: npm install
+      run: |
+        npm ci
+
+    - name: prebuild
+      run: |
+        npx expo prebuild
+
+    # setup-java expects to see gradle file in repo, so run it after prebuild.
+    - uses: actions/setup-java@v4.7.0
+      with:
+        java-version: 21
+        distribution: temurin
+        cache: 'gradle'
+
+    - uses: amyu/setup-android@v4
+
+    - name: android test
+      run: |
+        ./android/gradlew -p android test
+
+    - name: android test - report
+      uses: actions/upload-artifact@v4.3.0
+      if: success() || failure()    # run this step even if previous step failed
+      with:
+        name: android-test
+        path: node_modules/expo-dev-launcher/android/build/reports/tests/testDebugUnitTest/
